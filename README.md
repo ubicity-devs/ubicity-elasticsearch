@@ -1,0 +1,1 @@
+Ubicity ElasticSearch AddOn for storing received data into the ES instance.
