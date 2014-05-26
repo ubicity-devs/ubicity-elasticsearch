@@ -3,12 +3,10 @@ package at.ac.ait.ubicity.ubicity.elasticsearch.impl;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Stack;
 
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 
-import org.apache.commons.configuration.Configuration;
-import org.apache.commons.configuration.ConfigurationException;
-import org.apache.commons.configuration.PropertiesConfiguration;
 import org.apache.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -18,21 +16,18 @@ import at.ac.ait.ubicity.commons.broker.events.ESMetadata;
 import at.ac.ait.ubicity.commons.broker.events.ESMetadata.Properties;
 import at.ac.ait.ubicity.commons.broker.events.EventEntry;
 import at.ac.ait.ubicity.commons.broker.events.Metadata;
+import at.ac.ait.ubicity.commons.util.PropertyLoader;
 import at.ac.ait.ubicity.core.Core;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ESClient;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchAddOn;
 
 @PluginImplementation
-public class ElasticsearchAddOnImpl implements ElasticsearchAddOn {
+public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 
-	private String name;
+	private final String name;
 
-	private ESClient client;
-	private BulkRequestBuilder bulk;
+	private final ESClient client;
 	private final HashSet<String> knownIndizes = new HashSet<String>();
-
-	private long startTime;
-
 	private final Core core;
 
 	private final int uniqueId;
@@ -43,40 +38,31 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn {
 	protected static Logger logger = Logger
 			.getLogger(ElasticsearchAddOnImpl.class);
 
+	private boolean shutdown = false;
+	Stack<IndexRequest> requests = new Stack<IndexRequest>();
+
 	public ElasticsearchAddOnImpl() {
 		uniqueId = new Random().nextInt();
 
-		try {
-			// set necessary stuff for us to ueberhaupt be able to work
-			Configuration config = new PropertiesConfiguration(
-					ElasticsearchAddOnImpl.class
-							.getResource("/elasticsearch.cfg"));
+		PropertyLoader config = new PropertyLoader(
+				ElasticsearchAddOnImpl.class.getResource("/elasticsearch.cfg"));
 
-			this.name = config.getString("addon.elasticsearch.name");
-			BULK_SIZE = config.getInt("addon.elasticsearch.bulk_size");
-			BULK_TIMEOUT = config.getInt("addon.elasticsearch.bulk_timeout");
+		this.name = config.getString("addon.elasticsearch.name");
+		BULK_SIZE = config.getInt("addon.elasticsearch.bulk_size");
+		BULK_TIMEOUT = config.getInt("addon.elasticsearch.bulk_timeout");
 
-			String server = config.getString("addon.elasticsearch.host");
-			int port = config.getInt("addon.elasticsearch.host_port");
-			String cluster = config.getString("addon.elasticsearch.cluster");
+		String server = config.getString("addon.elasticsearch.host");
+		int port = config.getInt("addon.elasticsearch.host_port");
+		String cluster = config.getString("addon.elasticsearch.cluster");
 
-			client = new ESClient(server, port, cluster);
-
-		} catch (ConfigurationException noConfig) {
-			logger.fatal("Configuration not found! " + noConfig.toString());
-			throw new RuntimeException();
-		}
-
-		init();
+		client = new ESClient(server, port, cluster);
 
 		core = Core.getInstance();
 		core.register(this);
-	}
 
-	private void init() {
-
-		bulk = client.getBulkRequestBuilder();
-		startTime = System.currentTimeMillis();
+		Thread t = new Thread(this);
+		t.setName("execution context for " + getName());
+		t.start();
 	}
 
 	@Override
@@ -101,8 +87,8 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn {
 			// shutdown addon
 			if (event.isPoisoned()) {
 				logger.info("ConsumerPoison received");
-				closeConnections();
 				shutdown();
+
 				return;
 			}
 
@@ -126,22 +112,7 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn {
 			ir.id(event.getId());
 			ir.source(event.getData());
 
-			bulk.add(ir);
-
-			// FIXME: Means that without constant stream requests might not be
-			// send in acceptable time
-			if (bulk.numberOfActions() > BULK_SIZE
-					|| System.currentTimeMillis() - startTime > BULK_TIMEOUT) {
-
-				BulkResponse resp = bulk.get();
-
-				if (resp.hasFailures()) {
-					logger.warn("Bulk request failed with "
-							+ resp.buildFailureMessage());
-				}
-
-				startTime = System.currentTimeMillis();
-			}
+			requests.push(ir);
 		}
 	}
 
@@ -166,7 +137,47 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn {
 	}
 
 	public boolean shutdown() {
+		shutdown = true;
 		core.deRegister(this);
 		return true;
+	}
+
+	public void run() {
+
+		long startTime = System.currentTimeMillis();
+
+		while (!shutdown) {
+			try {
+
+				Thread.sleep(100);
+
+				if (requests.size() > BULK_SIZE
+						|| (System.currentTimeMillis() - startTime > BULK_TIMEOUT && requests
+								.size() > 0)) {
+
+					BulkRequestBuilder bulk = client.getBulkRequestBuilder();
+
+					synchronized (requests) {
+						while (!requests.isEmpty()) {
+							bulk.add(requests.pop());
+						}
+					}
+
+					BulkResponse resp = bulk.get();
+
+					if (resp.hasFailures()) {
+						logger.warn("Bulk request failed with "
+								+ resp.buildFailureMessage());
+					}
+
+					startTime = System.currentTimeMillis();
+				}
+
+			} catch (InterruptedException e) {
+				;
+			}
+		}
+		shutdown();
+		closeConnections();
 	}
 }
