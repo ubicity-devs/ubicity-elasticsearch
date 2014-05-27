@@ -26,7 +26,7 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 
 	private final String name;
 
-	private final ESClient client;
+	private static ESClient client;
 	private final HashSet<String> knownIndizes = new HashSet<String>();
 	private final Core core;
 
@@ -51,11 +51,12 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 		BULK_SIZE = config.getInt("addon.elasticsearch.bulk_size");
 		BULK_TIMEOUT = config.getInt("addon.elasticsearch.bulk_timeout");
 
-		String server = config.getString("addon.elasticsearch.host");
-		int port = config.getInt("addon.elasticsearch.host_port");
-		String cluster = config.getString("addon.elasticsearch.cluster");
-
-		client = new ESClient(server, port, cluster);
+		if (client == null) {
+			String server = config.getString("addon.elasticsearch.host");
+			int port = config.getInt("addon.elasticsearch.host_port");
+			String cluster = config.getString("addon.elasticsearch.cluster");
+			client = new ESClient(server, port, cluster);
+		}
 
 		core = Core.getInstance();
 		core.register(this);
@@ -91,9 +92,6 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 
 				return;
 			}
-
-			// logger.info("Sending took: [ms] " + (System.currentTimeMillis() -
-			// event.getCreatedTs()));
 
 			ESMetadata meta = getMyConfiguration(event.getCurrentMetadata());
 
@@ -145,6 +143,7 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 	public void run() {
 
 		long startTime = System.currentTimeMillis();
+		BulkRequestBuilder bulk = client.getBulkRequestBuilder();
 
 		while (!shutdown) {
 			try {
@@ -155,20 +154,13 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 						|| (System.currentTimeMillis() - startTime > BULK_TIMEOUT && requests
 								.size() > 0)) {
 
-					BulkRequestBuilder bulk = client.getBulkRequestBuilder();
-
 					synchronized (requests) {
 						while (!requests.isEmpty()) {
 							bulk.add(requests.pop());
 						}
 					}
 
-					BulkResponse resp = bulk.get();
-
-					if (resp.hasFailures()) {
-						logger.warn("Bulk request failed with "
-								+ resp.buildFailureMessage());
-					}
+					sendBulk(bulk);
 
 					startTime = System.currentTimeMillis();
 				}
@@ -179,5 +171,14 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 		}
 		shutdown();
 		closeConnections();
+	}
+
+	private void sendBulk(BulkRequestBuilder bulk) {
+		BulkResponse resp = bulk.get();
+
+		if (resp.hasFailures()) {
+			logger.warn("Bulk request failed with "
+					+ resp.buildFailureMessage());
+		}
 	}
 }
