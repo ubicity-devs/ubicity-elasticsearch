@@ -3,9 +3,11 @@ package at.ac.ait.ubicity.ubicity.elasticsearch.impl;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
-import java.util.Stack;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import net.xeoh.plugins.base.annotations.events.Init;
+import net.xeoh.plugins.base.annotations.events.Shutdown;
 
 import org.apache.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
@@ -24,13 +26,13 @@ import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchAddOn;
 @PluginImplementation
 public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 
-	private final String name;
+	private String name;
 
 	private static ESClient client;
 	private final HashSet<String> knownIndizes = new HashSet<String>();
-	private final Core core;
+	private Core core;
 
-	private final int uniqueId;
+	private int uniqueId;
 
 	private static int BULK_SIZE;
 	private static int BULK_TIMEOUT;
@@ -39,9 +41,10 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 			.getLogger(ElasticsearchAddOnImpl.class);
 
 	private boolean shutdown = false;
-	Stack<IndexRequest> requests = new Stack<IndexRequest>();
+	ConcurrentLinkedQueue<IndexRequest> requests = new ConcurrentLinkedQueue<IndexRequest>();
 
-	public ElasticsearchAddOnImpl() {
+	@Init
+	public void init() {
 		uniqueId = new Random().nextInt();
 
 		PropertyLoader config = new PropertyLoader(
@@ -110,7 +113,7 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 			ir.id(event.getId());
 			ir.source(event.getData());
 
-			requests.push(ir);
+			requests.add(ir);
 		}
 	}
 
@@ -134,10 +137,10 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 		client.close();
 	}
 
-	public boolean shutdown() {
+	@Shutdown
+	public void shutdown() {
 		shutdown = true;
 		core.deRegister(this);
-		return true;
 	}
 
 	public void run() {
@@ -156,7 +159,7 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 
 					synchronized (requests) {
 						while (!requests.isEmpty()) {
-							bulk.add(requests.pop());
+							bulk.add(requests.poll());
 						}
 					}
 
