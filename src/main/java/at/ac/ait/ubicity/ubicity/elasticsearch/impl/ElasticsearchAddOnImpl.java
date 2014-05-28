@@ -3,15 +3,13 @@ package at.ac.ait.ubicity.ubicity.elasticsearch.impl;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 import net.xeoh.plugins.base.annotations.events.Init;
 import net.xeoh.plugins.base.annotations.events.Shutdown;
 
 import org.apache.log4j.Logger;
-import org.elasticsearch.action.bulk.BulkRequestBuilder;
-import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
 
 import at.ac.ait.ubicity.commons.broker.events.ESMetadata;
@@ -24,7 +22,7 @@ import at.ac.ait.ubicity.ubicity.elasticsearch.ESClient;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchAddOn;
 
 @PluginImplementation
-public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
+public class ElasticsearchAddOnImpl implements ElasticsearchAddOn {
 
 	private String name;
 
@@ -35,13 +33,12 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 	private int uniqueId;
 
 	private static int BULK_SIZE;
-	private static int BULK_TIMEOUT;
+	private static int BULK_FLUSH_MS;
 
 	protected static Logger logger = Logger
 			.getLogger(ElasticsearchAddOnImpl.class);
 
-	private boolean shutdown = false;
-	ConcurrentLinkedQueue<IndexRequest> requests = new ConcurrentLinkedQueue<IndexRequest>();
+	private BulkProcessor bulkProcessor;
 
 	@Init
 	public void init() {
@@ -52,21 +49,17 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 
 		this.name = config.getString("addon.elasticsearch.name");
 		BULK_SIZE = config.getInt("addon.elasticsearch.bulk_size");
-		BULK_TIMEOUT = config.getInt("addon.elasticsearch.bulk_timeout");
+		BULK_FLUSH_MS = config.getInt("addon.elasticsearch.bulk_flush_ms");
 
-		if (client == null) {
-			String server = config.getString("addon.elasticsearch.host");
-			int port = config.getInt("addon.elasticsearch.host_port");
-			String cluster = config.getString("addon.elasticsearch.cluster");
-			client = new ESClient(server, port, cluster);
-		}
+		String server = config.getString("addon.elasticsearch.host");
+		int port = config.getInt("addon.elasticsearch.host_port");
+		String cluster = config.getString("addon.elasticsearch.cluster");
+		client = new ESClient(server, port, cluster);
+
+		bulkProcessor = client.getBulkProcessor(BULK_SIZE, BULK_FLUSH_MS);
 
 		core = Core.getInstance();
 		core.register(this);
-
-		Thread t = new Thread(this);
-		t.setName("execution context for " + getName());
-		t.start();
 	}
 
 	@Override
@@ -113,7 +106,7 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 			ir.id(event.getId());
 			ir.source(event.getData());
 
-			requests.add(ir);
+			bulkProcessor.add(ir);
 		}
 	}
 
@@ -134,54 +127,13 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn, Runnable {
 	}
 
 	private void closeConnections() {
+		bulkProcessor.close();
 		client.close();
 	}
 
 	@Shutdown
 	public void shutdown() {
-		shutdown = true;
 		core.deRegister(this);
-	}
-
-	public void run() {
-
-		long startTime = System.currentTimeMillis();
-		BulkRequestBuilder bulk = client.getBulkRequestBuilder();
-
-		while (!shutdown) {
-			try {
-
-				Thread.sleep(100);
-
-				if (requests.size() > BULK_SIZE
-						|| (System.currentTimeMillis() - startTime > BULK_TIMEOUT && requests
-								.size() > 0)) {
-
-					synchronized (requests) {
-						while (!requests.isEmpty()) {
-							bulk.add(requests.poll());
-						}
-					}
-
-					sendBulk(bulk);
-
-					startTime = System.currentTimeMillis();
-				}
-
-			} catch (InterruptedException e) {
-				;
-			}
-		}
-		shutdown();
 		closeConnections();
-	}
-
-	private void sendBulk(BulkRequestBuilder bulk) {
-		BulkResponse resp = bulk.get();
-
-		if (resp.hasFailures()) {
-			logger.warn("Bulk request failed with "
-					+ resp.buildFailureMessage());
-		}
 	}
 }

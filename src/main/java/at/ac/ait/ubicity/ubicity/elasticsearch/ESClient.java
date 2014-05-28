@@ -5,13 +5,17 @@ import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
+import org.elasticsearch.action.bulk.BulkProcessor;
+import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.unit.TimeValue;
 
 public class ESClient {
 
@@ -76,6 +80,28 @@ public class ESClient {
 
 	public void close() {
 		client.close();
+	}
+
+	public BulkProcessor getBulkProcessor(int bulkSize, long timeIntervalMs) {
+
+		BulkProcessor bulkProcessor = BulkProcessor
+				.builder(client, new BulkProcessor.Listener() {
+
+					public void beforeBulk(long executionId, BulkRequest request) {
+					}
+
+					public void afterBulk(long executionId,
+							BulkRequest request, BulkResponse response) {
+					}
+
+					public void afterBulk(long executionId,
+							BulkRequest request, Throwable failure) {
+					}
+				}).setBulkActions(bulkSize)
+				.setFlushInterval(TimeValue.timeValueMillis(timeIntervalMs))
+				.build();
+
+		return bulkProcessor;
 	}
 
 }
