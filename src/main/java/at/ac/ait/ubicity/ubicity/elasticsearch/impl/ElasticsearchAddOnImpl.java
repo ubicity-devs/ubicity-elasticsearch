@@ -12,6 +12,7 @@ import org.apache.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
 
+import at.ac.ait.ubicity.commons.broker.BrokerConsumer;
 import at.ac.ait.ubicity.commons.broker.events.ESMetadata;
 import at.ac.ait.ubicity.commons.broker.events.ESMetadata.Properties;
 import at.ac.ait.ubicity.commons.broker.events.EventEntry;
@@ -22,7 +23,8 @@ import at.ac.ait.ubicity.ubicity.elasticsearch.ESClient;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchAddOn;
 
 @PluginImplementation
-public class ElasticsearchAddOnImpl implements ElasticsearchAddOn {
+public class ElasticsearchAddOnImpl extends BrokerConsumer implements
+		ElasticsearchAddOn {
 
 	private String name;
 
@@ -77,8 +79,8 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn {
 		return false;
 	}
 
-	public void onEvent(EventEntry event, long sequence, boolean endOfBatch)
-			throws Exception {
+	@Override
+	public void onReceived(EventEntry event) {
 
 		if (event != null) {
 			// shutdown addon
@@ -122,6 +124,7 @@ public class ElasticsearchAddOnImpl implements ElasticsearchAddOn {
 		return null;
 	}
 
+	@Override
 	public String getName() {
 		return name;
 	}

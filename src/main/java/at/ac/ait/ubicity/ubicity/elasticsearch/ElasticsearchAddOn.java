@@ -17,9 +17,8 @@
  */
 package at.ac.ait.ubicity.ubicity.elasticsearch;
 
-import at.ac.ait.ubicity.commons.broker.BrokerConsumer;
 import at.ac.ait.ubicity.commons.interfaces.UbicityAddOn;
 
-public interface ElasticsearchAddOn extends UbicityAddOn, BrokerConsumer {
+public interface ElasticsearchAddOn extends UbicityAddOn {
 
 }
