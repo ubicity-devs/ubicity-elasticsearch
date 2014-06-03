@@ -17,8 +17,8 @@
  */
 package at.ac.ait.ubicity.ubicity.elasticsearch;
 
-import at.ac.ait.ubicity.commons.interfaces.UbicityAddOn;
+import at.ac.ait.ubicity.commons.interfaces.UbicityPlugin;
 
-public interface ElasticsearchAddOn extends UbicityAddOn {
+public interface ElasticsearchAddOn extends UbicityPlugin {
 
 }
