@@ -2,7 +2,6 @@ package at.ac.ait.ubicity.ubicity.elasticsearch.impl;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
 
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 import net.xeoh.plugins.base.annotations.events.Init;
@@ -35,8 +34,6 @@ public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 	private static ESClient client;
 	private final HashSet<String> knownIndizes = new HashSet<String>();
 
-	private int uniqueId;
-
 	private static int BULK_SIZE;
 	private static int BULK_FLUSH_MS;
 
@@ -47,8 +44,6 @@ public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 
 	@Init
 	public void init() {
-		uniqueId = new Random().nextInt();
-
 		PropertyLoader config = new PropertyLoader(
 				ElasticsearchAddOnImpl.class.getResource("/elasticsearch.cfg"));
 
@@ -65,21 +60,6 @@ public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 
 		logger.info(name + " loaded");
 		broker.register(this);
-	}
-
-	@Override
-	public final int hashCode() {
-		return uniqueId;
-	}
-
-	@Override
-	public final boolean equals(Object o) {
-
-		if (ElasticsearchAddOnImpl.class.isInstance(o)) {
-			ElasticsearchAddOnImpl other = (ElasticsearchAddOnImpl) o;
-			return other.uniqueId == this.uniqueId;
-		}
-		return false;
 	}
 
 	@Override
