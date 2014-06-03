@@ -7,18 +7,19 @@ import java.util.Random;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 import net.xeoh.plugins.base.annotations.events.Init;
 import net.xeoh.plugins.base.annotations.events.Shutdown;
+import net.xeoh.plugins.base.annotations.injections.InjectPlugin;
 
 import org.apache.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
 
 import at.ac.ait.ubicity.commons.broker.BrokerConsumer;
+import at.ac.ait.ubicity.commons.broker.UbicityBroker;
 import at.ac.ait.ubicity.commons.broker.events.ESMetadata;
 import at.ac.ait.ubicity.commons.broker.events.ESMetadata.Properties;
 import at.ac.ait.ubicity.commons.broker.events.EventEntry;
 import at.ac.ait.ubicity.commons.broker.events.Metadata;
 import at.ac.ait.ubicity.commons.util.PropertyLoader;
-import at.ac.ait.ubicity.core.Core;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ESClient;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchAddOn;
 
@@ -26,11 +27,13 @@ import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchAddOn;
 public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 		ElasticsearchAddOn {
 
+	@InjectPlugin
+	public UbicityBroker broker;
+
 	private String name;
 
 	private static ESClient client;
 	private final HashSet<String> knownIndizes = new HashSet<String>();
-	private Core core;
 
 	private int uniqueId;
 
@@ -60,8 +63,8 @@ public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 
 		bulkProcessor = client.getBulkProcessor(BULK_SIZE, BULK_FLUSH_MS);
 
-		core = Core.getInstance();
-		core.register(this);
+		logger.info(name + " loaded");
+		broker.register(this);
 	}
 
 	@Override
@@ -136,7 +139,6 @@ public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 
 	@Shutdown
 	public void shutdown() {
-		core.deRegister(this);
 		closeConnections();
 	}
 }
