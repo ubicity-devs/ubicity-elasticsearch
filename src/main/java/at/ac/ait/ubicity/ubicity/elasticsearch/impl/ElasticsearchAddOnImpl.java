@@ -1,23 +1,19 @@
 package at.ac.ait.ubicity.ubicity.elasticsearch.impl;
 
 import java.util.HashSet;
-import java.util.List;
 
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 import net.xeoh.plugins.base.annotations.events.Init;
 import net.xeoh.plugins.base.annotations.events.Shutdown;
-import net.xeoh.plugins.base.annotations.injections.InjectPlugin;
 
 import org.apache.log4j.Logger;
 import org.elasticsearch.action.bulk.BulkProcessor;
 import org.elasticsearch.action.index.IndexRequest;
 
 import at.ac.ait.ubicity.commons.broker.BrokerConsumer;
-import at.ac.ait.ubicity.commons.broker.UbicityBroker;
-import at.ac.ait.ubicity.commons.broker.events.ESMetadata;
-import at.ac.ait.ubicity.commons.broker.events.ESMetadata.Properties;
 import at.ac.ait.ubicity.commons.broker.events.EventEntry;
-import at.ac.ait.ubicity.commons.broker.events.Metadata;
+import at.ac.ait.ubicity.commons.broker.events.EventEntry.Property;
+import at.ac.ait.ubicity.commons.broker.exceptions.UbicityBrokerException;
 import at.ac.ait.ubicity.commons.util.PropertyLoader;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ESClient;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchAddOn;
@@ -25,9 +21,6 @@ import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchAddOn;
 @PluginImplementation
 public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 		ElasticsearchAddOn {
-
-	@InjectPlugin
-	public UbicityBroker broker;
 
 	private String name;
 
@@ -47,39 +40,39 @@ public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 		PropertyLoader config = new PropertyLoader(
 				ElasticsearchAddOnImpl.class.getResource("/elasticsearch.cfg"));
 
-		this.name = config.getString("addon.elasticsearch.name");
-		BULK_SIZE = config.getInt("addon.elasticsearch.bulk_size");
-		BULK_FLUSH_MS = config.getInt("addon.elasticsearch.bulk_flush_ms");
+		try {
+			super.init(config.getString("addon.elasticsearch.broker.user"),
+					config.getString("addon.elasticsearch.broker.pwd"));
 
-		String server = config.getString("addon.elasticsearch.host");
-		int port = config.getInt("addon.elasticsearch.host_port");
-		String cluster = config.getString("addon.elasticsearch.cluster");
-		client = new ESClient(server, port, cluster);
+			this.name = config.getString("addon.elasticsearch.name");
+			BULK_SIZE = config.getInt("addon.elasticsearch.bulk_size");
+			BULK_FLUSH_MS = config.getInt("addon.elasticsearch.bulk_flush_ms");
 
-		bulkProcessor = client.getBulkProcessor(BULK_SIZE, BULK_FLUSH_MS);
+			String server = config.getString("addon.elasticsearch.host");
+			int port = config.getInt("addon.elasticsearch.host_port");
+			String cluster = config.getString("addon.elasticsearch.cluster");
+			client = new ESClient(server, port, cluster);
 
-		logger.info(name + " loaded");
-		broker.register(this);
+			bulkProcessor = client.getBulkProcessor(BULK_SIZE, BULK_FLUSH_MS);
+
+			setConsumer(this,
+					config.getString("addon.elasticsearch.broker.dest"));
+
+			logger.info(name + " loaded");
+
+		} catch (UbicityBrokerException e) {
+			logger.error("During init caught exc.", e);
+		}
 	}
 
 	@Override
 	public void onReceived(EventEntry event) {
 
 		if (event != null) {
-			// shutdown addon
-			if (event.isPoisoned()) {
-				logger.info("ConsumerPoison received");
-				shutdown();
 
-				return;
-			}
-
-			ESMetadata meta = getMyConfiguration(event.getCurrentMetadata());
-
-			String esIdx = meta.getProperties().get(
-					Properties.ES_INDEX.toString());
-			String esType = meta.getProperties().get(
-					Properties.ES_TYPE.toString());
+			String esIdx = event.getHeader().get(Property.ES_INDEX);
+			String esType = event.getHeader().get(Property.ES_TYPE);
+			String id = event.getHeader().get(Property.ID);
 
 			// Check if Idx exists otherwise create it
 			if (!knownIndizes.contains(esIdx) && !client.indexExists(esIdx)) {
@@ -88,26 +81,13 @@ public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 			}
 
 			IndexRequest ir = new IndexRequest(esIdx, esType);
-			ir.id(event.getId());
-			ir.source(event.getData());
+			ir.id(id);
+			ir.source(event.getBody());
 
 			bulkProcessor.add(ir);
 		}
 	}
 
-	private ESMetadata getMyConfiguration(List<Metadata> data) {
-
-		for (Metadata d : data) {
-			if (this.name.equals(d.getDestination())
-					&& ESMetadata.class.isInstance(d)) {
-				return (ESMetadata) d;
-			}
-		}
-
-		return null;
-	}
-
-	@Override
 	public String getName() {
 		return name;
 	}
@@ -117,8 +97,10 @@ public class ElasticsearchAddOnImpl extends BrokerConsumer implements
 		client.close();
 	}
 
+	@Override
 	@Shutdown
 	public void shutdown() {
 		closeConnections();
+		super.shutdown();
 	}
 }
