@@ -88,6 +88,11 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements
 		}
 	}
 
+	@Override
+	protected void onReceivedRaw(String destination, String tmsg) {
+		// Not used here
+	}
+
 	public String getName() {
 		return name;
 	}
