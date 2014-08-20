@@ -74,17 +74,25 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements
 			String esType = event.getHeader().get(Property.ES_TYPE);
 			String id = event.getHeader().get(Property.ID);
 
-			// Check if Idx exists otherwise create it
-			if (!knownIndizes.contains(esIdx) && !client.indexExists(esIdx)) {
-				client.createIndex(esIdx);
-				knownIndizes.add(esIdx);
+			if (esIdx != null && esType != null && id != null) {
+				// Check if Idx exists otherwise create it
+				if (!knownIndizes.contains(esIdx) && !client.indexExists(esIdx)) {
+					client.createIndex(esIdx);
+					knownIndizes.add(esIdx);
+				}
+
+				IndexRequest ir = new IndexRequest(esIdx, esType);
+				ir.id(id);
+				ir.source(event.getBody());
+
+				bulkProcessor.add(ir);
+			} else {
+				logger.warn("Required fields are missing: idx: " + esIdx
+						+ "type: " + esType + " id: " + id);
 			}
 
-			IndexRequest ir = new IndexRequest(esIdx, esType);
-			ir.id(id);
-			ir.source(event.getBody());
-
-			bulkProcessor.add(ir);
+		} else {
+			logger.warn("Event object is null for dest: " + destination);
 		}
 	}
 
