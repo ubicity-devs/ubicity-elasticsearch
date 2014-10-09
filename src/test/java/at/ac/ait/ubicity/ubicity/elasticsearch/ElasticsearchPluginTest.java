@@ -3,7 +3,7 @@ package at.ac.ait.ubicity.ubicity.elasticsearch;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import at.ac.ait.ubicity.ubicity.elasticsearch.impl.ElasticsearchPluginImpl;
+import at.ac.ait.ubicity.elasticsearch.impl.ElasticsearchPluginImpl;
 
 public class ElasticsearchPluginTest {
 

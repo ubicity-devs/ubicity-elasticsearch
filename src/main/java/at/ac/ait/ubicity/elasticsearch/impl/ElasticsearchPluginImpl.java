@@ -1,4 +1,4 @@
-package at.ac.ait.ubicity.ubicity.elasticsearch.impl;
+package at.ac.ait.ubicity.elasticsearch.impl;
 
 import java.util.HashSet;
 
@@ -16,8 +16,8 @@ import at.ac.ait.ubicity.commons.broker.events.EventEntry.Property;
 import at.ac.ait.ubicity.commons.broker.exceptions.UbicityBrokerException;
 import at.ac.ait.ubicity.commons.util.PropertyLoader;
 import at.ac.ait.ubicity.commons.util.UbicityException;
-import at.ac.ait.ubicity.ubicity.elasticsearch.ESClient;
-import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchPlugin;
+import at.ac.ait.ubicity.elasticsearch.ESClient;
+import at.ac.ait.ubicity.elasticsearch.ElasticsearchPlugin;
 
 @PluginImplementation
 public class ElasticsearchPluginImpl extends BrokerConsumer implements

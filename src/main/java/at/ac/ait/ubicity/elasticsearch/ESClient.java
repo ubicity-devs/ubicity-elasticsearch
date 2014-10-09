@@ -1,4 +1,4 @@
-package at.ac.ait.ubicity.ubicity.elasticsearch;
+package at.ac.ait.ubicity.elasticsearch;
 
 import org.apache.log4j.Logger;
 import org.elasticsearch.action.ActionFuture;
@@ -27,10 +27,11 @@ public class ESClient {
 
 	public ESClient(String server, int port, String cluster) {
 
+		Thread.currentThread().setContextClassLoader(
+				ESClient.class.getClassLoader());
 		// instantiate an elasticsearch client
 		Settings settings = ImmutableSettings.settingsBuilder()
 				.put("cluster.name", cluster).build();
-
 		client = new TransportClient(settings)
 				.addTransportAddress(new InetSocketTransportAddress(server,
 						port));
