@@ -15,6 +15,7 @@ import at.ac.ait.ubicity.commons.broker.events.EventEntry;
 import at.ac.ait.ubicity.commons.broker.events.EventEntry.Property;
 import at.ac.ait.ubicity.commons.broker.exceptions.UbicityBrokerException;
 import at.ac.ait.ubicity.commons.util.PropertyLoader;
+import at.ac.ait.ubicity.commons.util.UbicityException;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ESClient;
 import at.ac.ait.ubicity.ubicity.elasticsearch.ElasticsearchPlugin;
 
@@ -69,26 +70,30 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements
 	public void onReceived(String destination, EventEntry event) {
 
 		if (event != null) {
+			try {
+				String esIdx = event.getHeader().get(Property.ES_INDEX);
+				String esType = event.getHeader().get(Property.ES_TYPE);
+				String id = event.getHeader().get(Property.ID);
 
-			String esIdx = event.getHeader().get(Property.ES_INDEX);
-			String esType = event.getHeader().get(Property.ES_TYPE);
-			String id = event.getHeader().get(Property.ID);
+				if (esIdx != null && esType != null && id != null) {
+					// Check if Idx exists otherwise create it
+					if (!knownIndizes.contains(esIdx)
+							&& !client.indexExists(esIdx)) {
+						client.createIndex(esIdx);
+						knownIndizes.add(esIdx);
+					}
 
-			if (esIdx != null && esType != null && id != null) {
-				// Check if Idx exists otherwise create it
-				if (!knownIndizes.contains(esIdx) && !client.indexExists(esIdx)) {
-					client.createIndex(esIdx);
-					knownIndizes.add(esIdx);
+					IndexRequest ir = new IndexRequest(esIdx, esType);
+					ir.id(id);
+					ir.source(event.getBody());
+
+					bulkProcessor.add(ir);
+				} else {
+					logger.warn("Required fields are missing: idx: " + esIdx
+							+ "type: " + esType + " id: " + id);
 				}
-
-				IndexRequest ir = new IndexRequest(esIdx, esType);
-				ir.id(id);
-				ir.source(event.getBody());
-
-				bulkProcessor.add(ir);
-			} else {
-				logger.warn("Required fields are missing: idx: " + esIdx
-						+ "type: " + esType + " id: " + id);
+			} catch (UbicityException e) {
+				logger.error("ES plugin threw exc: ", e);
 			}
 
 		} else {

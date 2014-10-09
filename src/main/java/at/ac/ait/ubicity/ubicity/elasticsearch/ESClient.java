@@ -17,6 +17,8 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 
+import at.ac.ait.ubicity.commons.util.UbicityException;
+
 public class ESClient {
 
 	private final Client client;
@@ -41,15 +43,15 @@ public class ESClient {
 	 * Creates the given Index if it does not exist.
 	 * 
 	 * @param idx
+	 * @throws UbicityException
 	 */
-	public void createIndex(String idx) {
+	public void createIndex(String idx) throws UbicityException {
 		try {
 			CreateIndexRequestBuilder createIndexRequestBuilder = client
 					.admin().indices().prepareCreate(idx);
 			createIndexRequestBuilder.execute().actionGet();
 		} catch (Exception e) {
-			// Throws exc. if index already exists
-			logger.warn("ES returned error: " + e.getMessage());
+			throw new UbicityException(e);
 		}
 	}
 
@@ -57,17 +59,17 @@ public class ESClient {
 	 * Checks if the given Index exists.
 	 * 
 	 * @param idx
+	 * @throws UbicityException
 	 */
-	public boolean indexExists(String idx) {
+	public boolean indexExists(String idx) throws UbicityException {
 
 		try {
 			ActionFuture<IndicesExistsResponse> resp = client.admin().indices()
 					.exists(new IndicesExistsRequest(idx));
 			return resp.get().isExists();
 		} catch (Exception e) {
-			logger.error("ES returned error: " + e.getMessage());
+			throw new UbicityException(e);
 		}
-		return false;
 	}
 
 	public IndexRequestBuilder getSingleRequestBuilder() {
