@@ -30,8 +30,12 @@ public class ESClient {
 		Thread.currentThread().setContextClassLoader(
 				ESClient.class.getClassLoader());
 		// instantiate an elasticsearch client
-		Settings settings = ImmutableSettings.settingsBuilder()
-				.put("cluster.name", cluster).build();
+		Settings settings = ImmutableSettings
+				.settingsBuilder()
+				// .put("cluster.name", cluster)
+				.put("client.transport.ignore_cluster_name", false)
+				.put("client.transport.nodes_sampler_interval", "30s")
+				.put("client.transport.ping_timeout", "30s").build();
 		client = new TransportClient(settings)
 				.addTransportAddress(new InetSocketTransportAddress(server,
 						port));
