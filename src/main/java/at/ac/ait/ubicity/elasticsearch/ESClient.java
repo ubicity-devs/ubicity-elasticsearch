@@ -17,7 +17,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 
-import at.ac.ait.ubicity.commons.util.UbicityException;
+import at.ac.ait.ubicity.commons.exceptions.UbicityException;
 
 public class ESClient {
 

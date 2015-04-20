@@ -13,15 +13,14 @@ import org.elasticsearch.action.index.IndexRequest;
 import at.ac.ait.ubicity.commons.broker.BrokerConsumer;
 import at.ac.ait.ubicity.commons.broker.events.EventEntry;
 import at.ac.ait.ubicity.commons.broker.events.EventEntry.Property;
-import at.ac.ait.ubicity.commons.broker.exceptions.UbicityBrokerException;
+import at.ac.ait.ubicity.commons.exceptions.UbicityBrokerException;
+import at.ac.ait.ubicity.commons.exceptions.UbicityException;
 import at.ac.ait.ubicity.commons.util.PropertyLoader;
-import at.ac.ait.ubicity.commons.util.UbicityException;
 import at.ac.ait.ubicity.elasticsearch.ESClient;
 import at.ac.ait.ubicity.elasticsearch.ElasticsearchPlugin;
 
 @PluginImplementation
-public class ElasticsearchPluginImpl extends BrokerConsumer implements
-		ElasticsearchPlugin {
+public class ElasticsearchPluginImpl extends BrokerConsumer implements ElasticsearchPlugin {
 
 	private String name;
 
@@ -31,19 +30,17 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements
 	private static int BULK_SIZE;
 	private static int BULK_FLUSH_MS;
 
-	protected static Logger logger = Logger
-			.getLogger(ElasticsearchPluginImpl.class);
+	protected static Logger logger = Logger.getLogger(ElasticsearchPluginImpl.class);
 
 	private BulkProcessor bulkProcessor;
 
+	@Override
 	@Init
 	public void init() {
-		PropertyLoader config = new PropertyLoader(
-				ElasticsearchPluginImpl.class.getResource("/elasticsearch.cfg"));
+		PropertyLoader config = new PropertyLoader(ElasticsearchPluginImpl.class.getResource("/elasticsearch.cfg"));
 
 		try {
-			super.init(config.getString("plugin.elasticsearch.broker.user"),
-					config.getString("plugin.elasticsearch.broker.pwd"));
+			super.init(config.getString("plugin.elasticsearch.broker.user"), config.getString("plugin.elasticsearch.broker.pwd"));
 
 			this.name = config.getString("plugin.elasticsearch.name");
 			BULK_SIZE = config.getInt("plugin.elasticsearch.bulk_size");
@@ -56,8 +53,7 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements
 
 			bulkProcessor = client.getBulkProcessor(BULK_SIZE, BULK_FLUSH_MS);
 
-			setConsumer(this,
-					config.getString("plugin.elasticsearch.broker.dest"));
+			setConsumer(this, config.getString("plugin.elasticsearch.broker.dest"));
 
 			logger.info(name + " loaded");
 
@@ -71,14 +67,13 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements
 
 		if (event != null) {
 			try {
-				String esIdx = event.getHeader().get(Property.ES_INDEX);
-				String esType = event.getHeader().get(Property.ES_TYPE);
-				String id = event.getHeader().get(Property.ID);
+				String esIdx = event.getProperty(Property.ES_INDEX);
+				String esType = event.getProperty(Property.ES_TYPE);
+				String id = event.getProperty(Property.ID);
 
 				if (esIdx != null && esType != null && id != null) {
 					// Check if Idx exists otherwise create it
-					if (!knownIndizes.contains(esIdx)
-							&& !client.indexExists(esIdx)) {
+					if (!knownIndizes.contains(esIdx) && !client.indexExists(esIdx)) {
 						client.createIndex(esIdx);
 						knownIndizes.add(esIdx);
 					}
@@ -89,8 +84,7 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements
 
 					bulkProcessor.add(ir);
 				} else {
-					logger.warn("Required fields are missing: idx: " + esIdx
-							+ "type: " + esType + " id: " + id);
+					logger.warn("Required fields are missing: idx: " + esIdx + "type: " + esType + " id: " + id);
 				}
 			} catch (UbicityException e) {
 				logger.error("ES plugin threw exc: ", e);
@@ -106,6 +100,7 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements
 		// Not used here
 	}
 
+	@Override
 	public String getName() {
 		return name;
 	}
