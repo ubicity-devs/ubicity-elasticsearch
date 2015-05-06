@@ -24,11 +24,11 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements Elasticse
 
 	private String name;
 
-	private static ESClient client;
+	private ESClient client;
 	private final HashSet<String> knownIndizes = new HashSet<String>();
 
-	private static int BULK_SIZE;
-	private static int BULK_FLUSH_MS;
+	private int BULK_SIZE;
+	private int BULK_FLUSH_MS;
 
 	protected static Logger logger = Logger.getLogger(ElasticsearchPluginImpl.class);
 
