@@ -1,5 +1,9 @@
 package at.ac.ait.ubicity.elasticsearch;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.Arrays;
+
 import org.apache.log4j.Logger;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder;
@@ -10,10 +14,7 @@ import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.settings.ImmutableSettings;
-import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 
@@ -21,27 +22,24 @@ import at.ac.ait.ubicity.commons.exceptions.UbicityException;
 
 public class ESClient {
 
-	private final Client client;
+	private final TransportClient client;
 
 	private static final Logger logger = Logger.getLogger(ESClient.class);
 
-	public ESClient(String server, int port, String cluster) {
+	public ESClient(String[] serverList, int port) {
+		Thread.currentThread().setContextClassLoader(ESClient.class.getClassLoader());
 
-		Thread.currentThread().setContextClassLoader(
-				ESClient.class.getClassLoader());
-		// instantiate an elasticsearch client
-		Settings settings = ImmutableSettings
-				.settingsBuilder()
-				// .put("cluster.name", cluster)
-				.put("client.transport.ignore_cluster_name", true)
-				.put("client.transport.nodes_sampler_interval", "30s")
-				.put("client.transport.ping_timeout", "30s").build();
-		client = new TransportClient(settings)
-				.addTransportAddress(new InetSocketTransportAddress(server,
-						port));
+		client = TransportClient.builder().build();
 
-		logger.info("Connected to " + server + ":" + port + " - Cluster: "
-				+ cluster);
+		for (int i = 0; i < serverList.length; i++) {
+			try {
+				client.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(serverList[i]), port));
+			} catch (UnknownHostException e) {
+				logger.error("ES Hostname not found: " + e);
+			}
+		}
+
+		logger.info("Connected to " + Arrays.toString(serverList) + ":" + port);
 	}
 
 	/**
@@ -52,8 +50,7 @@ public class ESClient {
 	 */
 	public void createIndex(String idx) throws UbicityException {
 		try {
-			CreateIndexRequestBuilder createIndexRequestBuilder = client
-					.admin().indices().prepareCreate(idx);
+			CreateIndexRequestBuilder createIndexRequestBuilder = client.admin().indices().prepareCreate(idx);
 			createIndexRequestBuilder.execute().actionGet();
 		} catch (Exception e) {
 			throw new UbicityException(e);
@@ -69,8 +66,7 @@ public class ESClient {
 	public boolean indexExists(String idx) throws UbicityException {
 
 		try {
-			ActionFuture<IndicesExistsResponse> resp = client.admin().indices()
-					.exists(new IndicesExistsRequest(idx));
+			ActionFuture<IndicesExistsResponse> resp = client.admin().indices().exists(new IndicesExistsRequest(idx));
 			return resp.get().isExists();
 		} catch (Exception e) {
 			throw new UbicityException(e);
@@ -91,22 +87,20 @@ public class ESClient {
 
 	public BulkProcessor getBulkProcessor(int bulkSize, long timeIntervalMs) {
 
-		BulkProcessor bulkProcessor = BulkProcessor
-				.builder(client, new BulkProcessor.Listener() {
+		BulkProcessor bulkProcessor = BulkProcessor.builder(client, new BulkProcessor.Listener() {
 
-					public void beforeBulk(long executionId, BulkRequest request) {
-					}
+			@Override
+			public void beforeBulk(long executionId, BulkRequest request) {
+			}
 
-					public void afterBulk(long executionId,
-							BulkRequest request, BulkResponse response) {
-					}
+			@Override
+			public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+			}
 
-					public void afterBulk(long executionId,
-							BulkRequest request, Throwable failure) {
-					}
-				}).setBulkActions(bulkSize)
-				.setFlushInterval(TimeValue.timeValueMillis(timeIntervalMs))
-				.build();
+			@Override
+			public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
+			}
+		}).setBulkActions(bulkSize).setFlushInterval(TimeValue.timeValueMillis(timeIntervalMs)).build();
 
 		return bulkProcessor;
 	}

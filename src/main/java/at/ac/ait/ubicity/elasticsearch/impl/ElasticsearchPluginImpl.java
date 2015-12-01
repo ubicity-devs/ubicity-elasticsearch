@@ -40,16 +40,15 @@ public class ElasticsearchPluginImpl extends BrokerConsumer implements Elasticse
 		PropertyLoader config = new PropertyLoader(ElasticsearchPluginImpl.class.getResource("/elasticsearch.cfg"));
 
 		try {
-			super.init(config.getString("plugin.elasticsearch.broker.user"), config.getString("plugin.elasticsearch.broker.pwd"));
+			super.init();
 
 			this.name = config.getString("plugin.elasticsearch.name");
 			BULK_SIZE = config.getInt("plugin.elasticsearch.bulk_size");
 			BULK_FLUSH_MS = config.getInt("plugin.elasticsearch.bulk_flush_ms");
 
-			String server = config.getString("plugin.elasticsearch.host");
-			int port = config.getInt("env.elasticsearch.host_port");
-			String cluster = config.getString("plugin.elasticsearch.cluster");
-			client = new ESClient(server, port, cluster);
+			String[] serverList = config.getStringArray("plugin.elasticsearch.host");
+			int port = config.getInt("plugin.elasticsearch.port");
+			client = new ESClient(serverList, port);
 
 			bulkProcessor = client.getBulkProcessor(BULK_SIZE, BULK_FLUSH_MS);
 
