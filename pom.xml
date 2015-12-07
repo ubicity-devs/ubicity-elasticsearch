@@ -27,7 +27,13 @@
 		<dependency>
 			<groupId>org.elasticsearch</groupId>
 			<artifactId>elasticsearch</artifactId>
-			<version>2.1.0</version>
+			<version>1.7.3</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>snakeyaml</artifactId>
+					<groupId>org.yaml</groupId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 

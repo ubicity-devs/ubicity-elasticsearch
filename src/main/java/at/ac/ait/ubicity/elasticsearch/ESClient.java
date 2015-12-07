@@ -15,6 +15,8 @@ import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequestBuilder;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.settings.ImmutableSettings;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 
@@ -29,7 +31,13 @@ public class ESClient {
 	public ESClient(String[] serverList, int port) {
 		Thread.currentThread().setContextClassLoader(ESClient.class.getClassLoader());
 
-		client = TransportClient.builder().build();
+		// Settings settings = Settings.settingsBuilder().put("client.transport.ignore_cluster_name", true).put("client.transport.nodes_sampler_interval",
+		// "30s")
+		// .put("client.transport.ping_timeout", "30s").build();
+		// client = TransportClient.builder().settings(settings).build();
+
+		Settings settings = ImmutableSettings.settingsBuilder().put("client.transport.ignore_cluster_name", true).build();
+		client = new TransportClient(settings);
 
 		for (int i = 0; i < serverList.length; i++) {
 			try {
